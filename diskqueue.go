@@ -24,11 +24,11 @@ type DiskQueue struct {
 	// 64bit atomic vars need to be first for proper alignment on 32bit platforms
 
 	// run-time state (also persisted to disk)
-	readPos      int64
+	readPos      int64 // current read position
 	writePos     int64
 	readFileNum  int64
 	writeFileNum int64
-	depth        int64
+	depth        int64 // every write will trigger depth++
 
 	sync.RWMutex
 
@@ -291,6 +291,7 @@ func (d *DiskQueue) readBatch(all bool) ([][]byte, error) {
 			d.reader = bufio.NewReader(d.readFile)
 		}
 
+		// read length
 		err = binary.Read(d.reader, binary.BigEndian, &msgSize)
 		if err != nil {
 			d.readFile.Close()
@@ -306,6 +307,7 @@ func (d *DiskQueue) readBatch(all bool) ([][]byte, error) {
 			return nil, fmt.Errorf("invalid message read size (%d)", msgSize)
 		}
 
+		// read data
 		readBuf := make([]byte, msgSize)
 		_, err = io.ReadFull(d.reader, readBuf)
 		if err != nil {
@@ -319,6 +321,7 @@ func (d *DiskQueue) readBatch(all bool) ([][]byte, error) {
 		totalBytes := int64(4 + msgSize)
 
 		nextReadPos += totalBytes
+		// move to next file if possible
 		if nextReadPos > d.maxBytesPerFile {
 			if d.readFile != nil {
 				d.readFile.Close()
@@ -431,6 +434,7 @@ func (d *DiskQueue) writeOne(data []byte) error {
 		return err
 	}
 
+	// length(4 bytes) + data
 	totalBytes := int64(4 + dataLen)
 	d.writePos += totalBytes
 	d.lastWriteData = data
