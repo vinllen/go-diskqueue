@@ -1,4 +1,4 @@
-package diskQueue
+package diskqueue
 
 // copied from github.com/nsqio/go-diskqueue, need change log module
 
